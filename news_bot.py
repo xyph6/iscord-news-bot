@@ -499,7 +499,8 @@ def main():
         for url in args.probe:
             try:
                 body = fetch(url)
-                print(f"OK   {len(body):>8} Zeichen  {url}\n     {re.sub(r'\\s+', ' ', body[:400])}")
+                snippet = re.sub(r"\s+", " ", body[:400])
+                print(f"OK   {len(body):>8} Zeichen  {url}\n     {snippet}")
             except Exception as e:
                 print(f"FAIL {e}  {url}")
         return
