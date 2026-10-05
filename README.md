@@ -8,6 +8,9 @@ Postet neue offizielle News zu **Aion 2** und **League of Legends** automatisch 
   - **Aion 2 Korea-Vorschau:** offizielle koreanische Update-Notes (Korea ist der globalen Version voraus), automatisch ins Deutsche übersetzt
   - **League of Legends:** offizielle News-Seite leagueoflegends.com/de-de/news (Patchnotes, Dev-Updates, Events)
   - Bewusst **nur offizielle Quellen** von NCSoft und Riot, keine Newsseiten von Dritten.
+- **Serverstatus:**
+  - **LoL (EUW):** offizielle Riot-Statusseite. Meldung, wenn eine Wartung oder schwere Störung beginnt und wenn die Server wieder online sind (@everyone).
+  - **Aion 2:** NCSoft bietet keinen öffentlichen Live-Serverstatus. Der Bot liest deshalb die offizielle Wartungsankündigung (Beginn, Dauer bzw. Ende) und meldet zum angekündigten Ende, dass die Server wieder online sind (mit Rolle Aion2). Wird eine Verlängerung angekündigt, gilt das neue Ende.
 - Postet jeden neuen Eintrag als Embed (Titel, Link, Kurztext, Bild, farbig je Spiel).
 - Merkt sich in `state.json`, was schon gepostet wurde, damit nichts doppelt kommt.
 - Beim allerersten Lauf postet er pro Quelle nur die neueste News (kein Archiv-Spam).

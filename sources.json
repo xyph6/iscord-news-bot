@@ -26,6 +26,18 @@
     "intro": "Offizielle Update-Notes aus Korea, automatisch übersetzt. Korea ist der globalen Version voraus, diese Inhalte kommen meist später auch zu uns."
   },
   {
+    "id": "aion2-wartung",
+    "game": "Aion 2",
+    "label": "Serverstatus",
+    "type": "steam_maintenance",
+    "url": "https://store.steampowered.com/feeds/news/app/3393110/?l=german",
+    "color": "#43B581",
+    "enabled": true,
+    "webhook_env": "DISCORD_WEBHOOK_AION2",
+    "mention_role_id": "1556613714927554700",
+    "title_match": "Wartung"
+  },
+  {
     "id": "lol-news",
     "game": "League of Legends",
     "label": "Offizielle News (leagueoflegends.com)",
@@ -38,5 +50,20 @@
       "www.leagueoflegends.com"
     ],
     "mention_everyone": true
+  },
+  {
+    "id": "lol-status",
+    "game": "League of Legends",
+    "label": "Serverstatus EUW",
+    "type": "riot_status",
+    "url": "https://lol.secure.dyn.riotcdn.net/channels/public/x/status/euw1.json",
+    "color": "#43B581",
+    "enabled": true,
+    "webhook_env": "DISCORD_WEBHOOK_LOL",
+    "mention_everyone": true,
+    "locale": "de_DE",
+    "incident_severities": [
+      "critical"
+    ]
   }
 ]

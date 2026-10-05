@@ -22,7 +22,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urljoin
@@ -328,6 +328,186 @@ PARSERS = {"rss": parse_rss, "lol": parse_lol, "plaync": parse_plaync}
 DETAIL_FETCHERS = {"lol": fetch_lol_article, "plaync": fetch_plaync_article}
 
 
+
+# ---------- Serverstatus ----------
+
+MONTHS_DE = {m: i for i, m in enumerate(["januar", "februar", "märz", "april", "mai", "juni", "juli", "august",
+                                         "september", "oktober", "november", "dezember"], 1)}
+TZ_OFFSETS = {"CEST": 2, "MESZ": 2, "CET": 1, "MEZ": 1, "UTC": 0, "GMT": 0, "PDT": -7, "PST": -8}
+_TIME_RE = (r"(?:(\d{1,2})\.\s*(%s)\s*(?:\d{4})?\s*)?(?:um\s+)?(\d{1,2})\s*[h:.]\s*(\d{2})\s*(?:Uhr\s*)?\(?(%s)\)?"
+            % ("|".join(MONTHS_DE), "|".join(TZ_OFFSETS)))
+
+
+def berlin(dt):
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.astimezone(ZoneInfo("Europe/Berlin"))
+    except Exception:
+        return dt.astimezone(timezone(timedelta(hours=2)))
+
+
+def _to_dt(m, ref):
+    day, month, hh, mm, tz = m.groups()
+    day = int(day) if day else ref.day
+    month = MONTHS_DE[month.lower()] if month else ref.month
+    year = ref.year + (1 if month < ref.month - 6 else 0)
+    local = datetime(year, month, day, int(hh), int(mm), tzinfo=timezone(timedelta(hours=TZ_OFFSETS[tz.upper()])))
+    return local.astimezone(timezone.utc)
+
+
+def maintenance_window(text, posted):
+    """Liest Beginn und Ende einer Wartung aus einer Ankündigung (deutsch, Steam).
+
+    Bevorzugt Zeiten in deutscher Zeit (CEST/CET), das Ende kommt aus "bis ..." oder "Dauer: N Stunden".
+    """
+    t = re.sub(r"[*​]", "", text or "")
+    ref = berlin(posted or datetime.now(timezone.utc))
+    de_tz = ("CEST", "MESZ", "CET", "MEZ")
+    # 1) Bereich "07h00 bis 15h00 CEST" / "07:00 - 15:00 Uhr (MESZ)"
+    rng = re.compile(r"(?:(\d{1,2})\.\s*(%s)\s*(?:\d{4})?\s*)?(?:um\s+|von\s+)?(\d{1,2})\s*[h:.]\s*(\d{2})\s*(?:Uhr)?\s*"
+                     r"(?:bis|-|–)\s*(\d{1,2})\s*[h:.]\s*(\d{2})\s*(?:Uhr\s*)?\(?(%s)\)?"
+                     % ("|".join(MONTHS_DE), "|".join(TZ_OFFSETS)), re.I)
+    ranges = list(rng.finditer(t))
+    ranges = [m for m in ranges if m.group(7).upper() in de_tz] or ranges
+    if ranges:
+        d, mo, h1, m1, h2, m2, tz = ranges[0].groups()
+        fake = lambda h, m: re.match(_TIME_RE, f"{d + '. ' + mo + ' ' if d and mo else ''}{h}:{m} {tz}", re.I)
+        start, end = _to_dt(fake(h1, m1), ref), _to_dt(fake(h2, m2), ref)
+        return start, end + timedelta(days=1) if end <= start else end
+    times = list(re.finditer(_TIME_RE, t, re.I))
+    if not times:
+        return None, None
+    # 2) "bis 17:00 Uhr (MESZ)", z. B. bei einer Verlängerung
+    untils = [(m.start(1), re.match(_TIME_RE, m.group(1), re.I))
+              for m in re.finditer(r"bis\s+(?:\w+,\s*)?(" + _TIME_RE + ")", t, re.I)]
+    untils = [u for u in untils if u[1].group(5).upper() in de_tz] or untils
+    # Zeitangaben in deutscher Zeit bevorzugen (die Ankündigung nennt oft auch PDT)
+    de = [m for m in times if m.group(5).upper() in de_tz] or times
+    if untils:
+        end = _to_dt(untils[0][1], ref)
+        others = [m for m in de if m.start() != untils[0][0]]
+        start = _to_dt(others[0], ref) if others else None
+    else:
+        # 3) Beginn plus "Dauer: 8 Stunden"
+        start, end = _to_dt(de[0], ref), None
+        dur = re.search(r"Dauer\s*:?\s*(?:ca\.\s*)?(\d+(?:[.,]\d+)?)\s*(Stunde|Std|Minute|Min)", t, re.I)
+        if dur:
+            n = float(dur.group(1).replace(",", "."))
+            end = start + (timedelta(hours=n) if dur.group(2).lower().startswith(("stunde", "std")) else timedelta(minutes=n))
+        elif len(de) > 1:
+            end = _to_dt(de[1], ref)
+    if start and end and end <= start:
+        end += timedelta(days=1)
+    return start, end
+
+
+def _status_message(source, title, text, color=None):
+    msg = {"embeds": [{
+        "title": title[:256],
+        "description": text[:EMBED_TEXT_LIMIT],
+        "color": int((color or source.get("color", "#43B581")).lstrip("#"), 16),
+        "author": {"name": f"{source['game']} · {source.get('label', '')}".strip(" ·")},
+        "footer": {"text": "News-Bot · Serverstatus"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }], "allowed_mentions": {"parse": []}}
+    role = str(source.get("mention_role_id") or "").strip()
+    if role:
+        msg["content"] = f"<@&{role}>"
+        msg["allowed_mentions"] = {"roles": [role]}
+    elif source.get("mention_everyone"):
+        msg["content"] = "@everyone"
+        msg["allowed_mentions"] = {"parse": ["everyone"]}
+    return msg
+
+
+def check_steam_maintenance(src, state, now):
+    """Aion 2: kein öffentlicher Live-Serverstatus. Der Bot liest die offizielle Wartungsankündigung
+    und meldet, sobald das angekündigte Ende erreicht ist (Verlängerungen werden ebenfalls angekündigt)."""
+    st = state if isinstance(state, dict) else {}
+    done = st.setdefault("notified", [])
+    items = [i for i in parse_rss(fetch(src["url"]), src["url"])
+             if re.search(src.get("title_match", "Wartung"), i["title"], re.I)]
+    items.sort(key=lambda i: i["date"] or datetime.min.replace(tzinfo=timezone.utc))
+    if not items:
+        log(f"{src['id']}: keine Wartungsankündigung gefunden")
+        return st, []
+    item = items[-1]  # neueste Ankündigung zählt (z. B. Verlängerung)
+    if item["id"] in done:
+        log(f"{src['id']}: '{item['title']}' bereits gemeldet")
+        return st, []
+    if re.search(r"beendet|abgeschlossen|vorbei", item["title"], re.I):
+        start, end = None, item["date"]
+    else:
+        start, end = maintenance_window(item["summary"], item["date"])
+    if not end:
+        log(f"{src['id']}: '{item['title']}': kein Ende in der Ankündigung gefunden")
+        return st, []
+    st["current"] = {"id": item["id"], "title": item["title"], "end": end.isoformat()}
+    if now < end:
+        log(f"{src['id']}: Wartung läuft laut Ankündigung bis {berlin(end):%d.%m. %H:%M} Uhr (deutsche Zeit)")
+        return st, []
+    done.append(item["id"])
+    st["notified"] = done[-50:]
+    if now - end > timedelta(hours=6):
+        log(f"{src['id']}: Wartung '{item['title']}' ist schon länger vorbei, keine Meldung")
+        return st, []
+    when = (f"{berlin(start):%d.%m. %H:%M} bis {berlin(end):%H:%M} Uhr" if start else f"{berlin(end):%d.%m. %H:%M} Uhr")
+    text = (f"Die Wartung ist laut offizieller Ankündigung beendet ({when}, deutsche Zeit). "
+            f"Ihr könnt euch wieder einloggen.\n\n[Zur Ankündigung]({item['url']})\n\n"
+            "*Grundlage ist die offizielle Ankündigung. Wird die Wartung verlängert, postet der Bot "
+            "die neue Ankündigung und meldet sich zum neuen Ende erneut.*")
+    return st, [_status_message(src, "✅ Server wieder online", text)]
+
+
+def _riot_text(entries, locale):
+    for want in (locale, "en_US"):
+        for e in entries or []:
+            if e.get("locale") == want and e.get("content"):
+                return e["content"]
+    return (entries or [{}])[0].get("content", "")
+
+
+def check_riot_status(src, state, now):
+    """LoL: offizielle Riot-Statusseite (status.riotgames.com) für eine Region."""
+    st = state if isinstance(state, dict) else {}
+    first = "active" not in st
+    known = st.get("active", {})
+    data = json.loads(fetch(src["url"]))
+    locale = src.get("locale", "de_DE")
+    region = data.get("name") or src.get("region", "")
+    active = {}
+    for kind, entries in (("maintenance", data.get("maintenances")), ("incident", data.get("incidents"))):
+        for e in entries or []:
+            if kind == "maintenance" and e.get("maintenance_status") not in ("in_progress",):
+                continue
+            if kind == "incident" and e.get("incident_severity") not in src.get("incident_severities", ["critical"]):
+                continue
+            updates = sorted(e.get("updates") or [], key=lambda u: u.get("created_at") or "")
+            active[str(e.get("id"))] = {
+                "kind": kind,
+                "title": _riot_text(e.get("titles"), locale),
+                "update": _riot_text(updates[-1].get("translations"), locale) if updates else "",
+            }
+    msgs = []
+    if not first:
+        for eid, e in active.items():
+            if eid not in known:
+                head = "🔧 Wartung läuft" if e["kind"] == "maintenance" else "⚠️ Serverstörung"
+                msgs.append(_status_message(src, f"{head} ({region})",
+                                            f"**{e['title']}**\n\n{e['update']}".strip(), "#E67E22"))
+        for eid, e in known.items():
+            if eid not in active:
+                what = "Die Wartung" if e["kind"] == "maintenance" else "Die Störung"
+                msgs.append(_status_message(src, f"✅ Server wieder online ({region})",
+                                            f"{what} **{e['title']}** ist beendet."))
+    log(f"{src['id']}: {len(active)} aktive Wartung(en)/Störung(en)" + (" (erster Lauf, nur gemerkt)" if first else ""))
+    st["active"] = active
+    return st, msgs
+
+
+STATUS_CHECKERS = {"steam_maintenance": check_steam_maintenance, "riot_status": check_riot_status}
+
+
 def is_relevant(src, item):
     """Filter aus sources.json: nur bestimmte Domains / Titel, Ausschlüsse."""
     domain = re.sub(r"^https?://([^/]+).*", r"\1", item["url"] or "")
@@ -492,6 +672,22 @@ def run_once(dry_run=False):
         webhook = os.environ.get(env_name, "").strip()
         if not webhook and not dry_run:
             log(f"{src['id']}: Secret {env_name} ist nicht gesetzt, Quelle wird übersprungen")
+            continue
+        if src["type"] in STATUS_CHECKERS:
+            try:
+                st, msgs = STATUS_CHECKERS[src["type"]](src, state.get(src["id"]), datetime.now(timezone.utc))
+            except Exception as e:
+                log(f"{src['id']}: Statusprüfung fehlgeschlagen: {e}")
+                continue
+            ok = True
+            for msg in msgs:
+                if dry_run:
+                    log(f"  [dry-run] Status: {msg['embeds'][0]['title']}: {msg['embeds'][0]['description'][:300]}")
+                else:
+                    ok = _send(webhook, msg) and ok
+                    log(f"  Status gepostet: {msg['embeds'][0]['title']}")
+            if ok:  # bei Fehler Zustand nicht speichern, damit es beim nächsten Lauf erneut versucht wird
+                state[src["id"]] = st
             continue
         try:
             items = PARSERS[src["type"]](fetch(src["url"]), src["url"])
