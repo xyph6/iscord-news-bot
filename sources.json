@@ -15,6 +15,9 @@
     "type": "lol",
     "url": "https://www.leagueoflegends.com/de-de/news/",
     "color": "#C89B3C",
-    "enabled": true
+    "enabled": true,
+    "exclude_domains": [
+      "merch.riotgames.com"
+    ]
   }
 ]

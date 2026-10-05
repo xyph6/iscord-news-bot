@@ -256,6 +256,8 @@ def run_once(webhook, dry_run=False):
             log(f"{src['id']}: Abruf fehlgeschlagen: {e}")
             continue
         items = [i for i in items if i["id"] and i["title"]]
+        excluded = src.get("exclude_domains", [])
+        items = [i for i in items if not any(f"//{d}" in i["url"] for d in excluded)]
         if not items:
             log(f"{src['id']}: keine Einträge gefunden (Seitenaufbau geändert?)")
             continue
