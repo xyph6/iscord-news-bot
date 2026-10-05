@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"   # alle 10 Minuten (GitHub startet geplante Läufe oft ein paar Minuten später)
   workflow_dispatch:          # manuell starten über "Run workflow"
+    inputs:
+      preview_url:
+        description: "Optional: LoL-Artikel-URL nur anzeigen statt posten (zum Testen)"
+        required: false
+        default: ""
 
 permissions:
   contents: write             # damit state.json zurückgeschrieben werden kann
@@ -21,12 +26,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Artikel-Vorschau
+        if: ${{ github.event.inputs.preview_url != '' && github.event.inputs.preview_url != null }}
+        env:
+          PREVIEW_URL: ${{ github.event.inputs.preview_url }}
+        run: python news_bot.py --preview "$PREVIEW_URL"
       - name: News prüfen und posten
+        if: ${{ github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null }}
         env:
           DISCORD_WEBHOOK_AION2: ${{ secrets.DISCORD_WEBHOOK_AION2 }}
           DISCORD_WEBHOOK_LOL: ${{ secrets.DISCORD_WEBHOOK_LOL || secrets.DISCORD_WEBHOOK_URL }}
         run: python news_bot.py
       - name: Bereits gepostete News speichern
+        if: ${{ github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null }}
         run: |
           git config user.name "news-bot"
           git config user.email "news-bot@users.noreply.github.com"

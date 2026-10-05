@@ -51,7 +51,7 @@ def clean_text(text, limit=300):
     return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + " …"
 
 
-def html_to_discord(text, limit=3800):
+def html_to_discord(text, limit=None):
     """Wandelt HTML/BBCode in lesbaren Discord-Text (fett, Aufzählungen, Absätze) um."""
     t = text or ""
     # BBCode (Steam) auf HTML abbilden
@@ -74,7 +74,7 @@ def html_to_discord(text, limit=3800):
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r" *\n *", "\n", t)
     t = re.sub(r"\n{3,}", "\n\n", t).strip()
-    if len(t) > limit:
+    if limit and len(t) > limit:
         cut = t[:limit]
         cut = cut[: max(cut.rfind("\n"), limit // 2)].rstrip()
         if cut.count("**") % 2:
@@ -272,22 +272,40 @@ def is_relevant(src, item):
 
 # ---------- Discord ----------
 
-def post_to_discord(webhook, source, item):
-    color = int(source.get("color", "#5865F2").lstrip("#"), 16)
-    embed = {
-        "title": item["title"][:256],
-        "url": item["url"] or None,
-        "description": item["summary"][:4000] or None,
-        "color": color,
-        "author": {"name": f"{source['game']} · {source.get('label', '')}".strip(" ·")},
-        "footer": {"text": "News-Bot"},
-    }
-    if item.get("date"):
-        embed["timestamp"] = item["date"].isoformat()
-    if item.get("image"):
-        embed["image"] = {"url": item["image"]}
-    body = json.dumps({"embeds": [{k: v for k, v in embed.items() if v is not None}],
-                       "allowed_mentions": {"parse": []}}).encode()
+EMBED_TEXT_LIMIT = 4000  # Discord erlaubt 4096 Zeichen pro Embed-Beschreibung
+
+
+def split_text(text, limit=EMBED_TEXT_LIMIT):
+    """Teilt langen Text an Absatz-/Zeilengrenzen in Stücke <= limit. Es geht nichts verloren."""
+    chunks, current = [], ""
+    for line in text.split("\n"):
+        while len(line) > limit:  # extrem lange Zeile hart teilen
+            cut = line[:limit].rfind(" ")
+            cut = cut if cut > limit // 2 else limit
+            if current:
+                chunks.append(current)
+                current = ""
+            chunks.append(line[:cut])
+            line = line[cut:].lstrip()
+        candidate = f"{current}\n{line}" if current else line
+        if len(candidate) > limit:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    if current.strip():
+        chunks.append(current)
+    # Fettdruck (**) über Stückgrenzen hinweg sauber schließen und wieder öffnen
+    fixed, carry = [], False
+    for c in chunks:
+        c = ("**" if carry else "") + c.strip("\n")
+        carry = c.count("**") % 2 == 1
+        fixed.append(c + ("**" if carry else ""))
+    return [c for c in fixed if c.strip("* \n")]
+
+
+def _send(webhook, payload):
+    body = json.dumps(payload).encode()
     for attempt in range(5):
         req = urllib.request.Request(webhook, data=body, method="POST",
                                      headers={"Content-Type": "application/json", "User-Agent": USER_AGENT})
@@ -308,6 +326,67 @@ def post_to_discord(webhook, source, item):
             log(f"Discord nicht erreichbar: {e}")
             time.sleep(2 ** attempt)
     return False
+
+
+def build_messages(source, item):
+    """Baut die Discord-Nachrichten: erste mit Titel (und Rollen-Ping), weitere als Fortsetzung."""
+    color = int(source.get("color", "#5865F2").lstrip("#"), 16)
+    chunks = split_text(item["summary"] or "") or [""]
+    # Prüfen, dass der komplette Text in den Teilen steckt
+    flat = lambda t: re.sub(r"[\s*]", "", t)
+    if flat("".join(chunks)) != flat(item["summary"] or ""):
+        log(f"  WARNUNG: Text von '{item['title']}' wurde beim Aufteilen nicht vollständig übernommen")
+    role = str(source.get("mention_role_id") or "").strip()
+    messages = []
+    for n, chunk in enumerate(chunks, 1):
+        embed = {"color": color, "description": chunk or None}
+        if n == 1:
+            embed.update({
+                "title": item["title"][:256],
+                "url": item["url"] or None,
+                "author": {"name": f"{source['game']} · {source.get('label', '')}".strip(" ·")},
+            })
+            if item.get("image"):
+                embed["image"] = {"url": item["image"]}
+        if n == len(chunks):
+            embed["footer"] = {"text": "News-Bot" + (f" · Teil {n}/{len(chunks)}" if len(chunks) > 1 else "")}
+            if item.get("date"):
+                embed["timestamp"] = item["date"].isoformat()
+        elif len(chunks) > 1:
+            embed["footer"] = {"text": f"Teil {n}/{len(chunks)}"}
+        msg = {"embeds": [{k: v for k, v in embed.items() if v is not None}], "allowed_mentions": {"parse": []}}
+        if n == 1 and role:
+            msg["content"] = f"<@&{role}>"
+            msg["allowed_mentions"] = {"roles": [role]}
+        messages.append(msg)
+    return messages
+
+
+def post_to_discord(webhook, source, item):
+    messages = build_messages(source, item)
+    for n, msg in enumerate(messages, 1):
+        if not _send(webhook, msg):
+            if n == 1:
+                return False
+            log(f"  Teil {n}/{len(messages)} konnte nicht gesendet werden")
+            return True  # Anfang ist schon im Channel, nicht doppelt posten
+        if len(messages) > 1:
+            time.sleep(0.8)
+    log(f"  gepostet: {item['title']} ({len(messages)} Nachricht(en), {len(item['summary'] or '')} Zeichen)")
+    return True
+
+
+def preview(url, source_type):
+    """Zeigt, was für einen Artikel gepostet würde (zum Prüfen, ohne zu posten)."""
+    item = {"id": url, "title": "Vorschau", "url": url, "summary": "", "date": None, "image": None}
+    if source_type in DETAIL_FETCHERS:
+        DETAIL_FETCHERS[source_type](item)
+    msgs = build_messages({"game": "Vorschau"}, item)
+    print(f"{len(item['summary'])} Zeichen -> {len(msgs)} Nachricht(en)")
+    for m in msgs:
+        d = m["embeds"][0].get("description", "")
+        print(f"--- Teil ({len(d)} Zeichen) ---")
+        print(d[:600] + ("\n[...]\n" + d[-300:] if len(d) > 900 else ""))
 
 
 # ---------- Ablauf ----------
@@ -388,7 +467,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--loop", type=int, metavar="SEKUNDEN", help="dauerhaft laufen und alle N Sekunden prüfen")
     ap.add_argument("--dry-run", action="store_true", help="nichts posten, nur anzeigen")
+    ap.add_argument("--preview", metavar="URL", help="Artikeltext einer LoL-Seite anzeigen, ohne zu posten")
     args = ap.parse_args()
+    if args.preview:
+        preview(args.preview, "lol")
+        return
     while True:
         n = run_once(args.dry_run)
         log(f"Fertig, {n} Beiträge gepostet")
