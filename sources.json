@@ -8,7 +8,8 @@
     "color": "#4FA3E0",
     "enabled": true,
     "webhook_env": "DISCORD_WEBHOOK_AION2",
-    "exclude_title": "Vielen Dank|Danke|Twitch|Drops|Gewinnspiel|Giveaway|Umfrage|Livestream|Wallpaper|Warnung vor dem Kauf"
+    "exclude_title": "Vielen Dank|Danke|Twitch|Drops|Gewinnspiel|Giveaway|Umfrage|Livestream|Wallpaper|Warnung vor dem Kauf",
+    "mention_role_id": "1556620843973349397"
   },
   {
     "id": "lol-news",
