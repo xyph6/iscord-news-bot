@@ -9,6 +9,10 @@ on:
         description: "Optional: LoL-Artikel-URL nur anzeigen statt posten (zum Testen)"
         required: false
         default: ""
+      probe_urls:
+        description: "Optional: URLs (mit Leerzeichen getrennt) nur auf Abrufbarkeit testen"
+        required: false
+        default: ""
 
 permissions:
   contents: write             # damit state.json zurückgeschrieben werden kann
@@ -26,19 +30,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Quellen testen
+        if: ${{ github.event.inputs.probe_urls != '' && github.event.inputs.probe_urls != null }}
+        env:
+          PROBE_URLS: ${{ github.event.inputs.probe_urls }}
+        run: python news_bot.py --probe $PROBE_URLS
       - name: Artikel-Vorschau
         if: ${{ github.event.inputs.preview_url != '' && github.event.inputs.preview_url != null }}
         env:
           PREVIEW_URL: ${{ github.event.inputs.preview_url }}
         run: python news_bot.py --preview "$PREVIEW_URL"
       - name: News prüfen und posten
-        if: ${{ github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null }}
+        if: ${{ (github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null) && (github.event.inputs.probe_urls == '' || github.event.inputs.probe_urls == null) }}
         env:
           DISCORD_WEBHOOK_AION2: ${{ secrets.DISCORD_WEBHOOK_AION2 }}
           DISCORD_WEBHOOK_LOL: ${{ secrets.DISCORD_WEBHOOK_LOL || secrets.DISCORD_WEBHOOK_URL }}
         run: python news_bot.py
       - name: Bereits gepostete News speichern
-        if: ${{ github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null }}
+        if: ${{ (github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null) && (github.event.inputs.probe_urls == '' || github.event.inputs.probe_urls == null) }}
         run: |
           git config user.name "news-bot"
           git config user.email "news-bot@users.noreply.github.com"

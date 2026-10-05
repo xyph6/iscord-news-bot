@@ -493,7 +493,16 @@ def main():
     ap.add_argument("--loop", type=int, metavar="SEKUNDEN", help="dauerhaft laufen und alle N Sekunden prüfen")
     ap.add_argument("--dry-run", action="store_true", help="nichts posten, nur anzeigen")
     ap.add_argument("--preview", metavar="URL", help="Artikeltext einer LoL-Seite anzeigen, ohne zu posten")
+    ap.add_argument("--probe", nargs="+", metavar="URL", help="testen, ob URLs abrufbar sind")
     args = ap.parse_args()
+    if args.probe:
+        for url in args.probe:
+            try:
+                body = fetch(url)
+                print(f"OK   {len(body):>8} Zeichen  {url}\n     {re.sub(r'\\s+', ' ', body[:400])}")
+            except Exception as e:
+                print(f"FAIL {e}  {url}")
+        return
     if args.preview:
         preview(args.preview, "lol")
         return
