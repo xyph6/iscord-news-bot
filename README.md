@@ -5,6 +5,7 @@ Postet neue offizielle News zu **Aion 2** und **League of Legends** automatisch 
 ## Was der Bot macht
 - Prüft alle 10 Minuten diese Quellen (einstellbar in `sources.json`):
   - **Aion 2:** offizieller News-Feed auf Steam (Patchnotes, Wartungen, Events, Ankündigungen von NC)
+  - **Aion 2 Korea-Vorschau:** offizielle koreanische Update-Notes (Korea ist der globalen Version voraus), automatisch ins Deutsche übersetzt
   - **League of Legends:** offizielle News-Seite leagueoflegends.com/de-de/news (Patchnotes, Dev-Updates, Events)
   - Bewusst **nur offizielle Quellen** von NCSoft und Riot, keine Newsseiten von Dritten.
 - Postet jeden neuen Eintrag als Embed (Titel, Link, Kurztext, Bild, farbig je Spiel).
