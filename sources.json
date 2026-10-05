@@ -6,7 +6,8 @@
     "type": "rss",
     "url": "https://store.steampowered.com/feeds/news/app/3393110/?l=german",
     "color": "#4FA3E0",
-    "enabled": true
+    "enabled": true,
+    "webhook_env": "DISCORD_WEBHOOK_AION2"
   },
   {
     "id": "lol-news",
@@ -18,6 +19,7 @@
     "enabled": true,
     "exclude_domains": [
       "merch.riotgames.com"
-    ]
+    ],
+    "webhook_env": "DISCORD_WEBHOOK_LOL"
   }
 ]

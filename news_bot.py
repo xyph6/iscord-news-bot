@@ -2,7 +2,8 @@
 """Discord-News-Bot: postet neue News zu Aion 2 und League of Legends per Webhook.
 
 Nur Python-Standardbibliothek. Konfiguration:
-  DISCORD_WEBHOOK_URL  (Pflicht, als Secret/Umgebungsvariable, nie im Code)
+  DISCORD_WEBHOOK_URL  Standard-Webhook (als Secret/Umgebungsvariable, nie im Code)
+                       Eine Quelle kann mit "webhook_env" einen eigenen Webhook (eigenen Channel) nutzen.
   sources.json         Liste der Quellen (neben diesem Skript)
   state.json           Bereits gepostete Einträge (wird automatisch gepflegt)
 
@@ -16,7 +17,6 @@ import html
 import json
 import os
 import re
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -245,11 +245,16 @@ def save_state(state):
     tmp.replace(STATE_FILE)
 
 
-def run_once(webhook, dry_run=False):
+def run_once(dry_run=False):
     sources = [s for s in json.loads(SOURCES_FILE.read_text()) if s.get("enabled", True)]
     state = load_state()
     posted = 0
     for src in sources:
+        env_name = src.get("webhook_env", "DISCORD_WEBHOOK_URL")
+        webhook = os.environ.get(env_name, "").strip()
+        if not webhook and not dry_run:
+            log(f"{src['id']}: Secret {env_name} ist nicht gesetzt, Quelle wird übersprungen")
+            continue
         try:
             items = PARSERS[src["type"]](fetch(src["url"]), src["url"])
         except Exception as e:  # eine kaputte Quelle soll die anderen nicht stoppen
@@ -297,11 +302,8 @@ def main():
     ap.add_argument("--loop", type=int, metavar="SEKUNDEN", help="dauerhaft laufen und alle N Sekunden prüfen")
     ap.add_argument("--dry-run", action="store_true", help="nichts posten, nur anzeigen")
     args = ap.parse_args()
-    webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
-    if not webhook and not args.dry_run:
-        sys.exit("DISCORD_WEBHOOK_URL ist nicht gesetzt.")
     while True:
-        n = run_once(webhook, args.dry_run)
+        n = run_once(args.dry_run)
         log(f"Fertig, {n} Beiträge gepostet")
         if not args.loop:
             break

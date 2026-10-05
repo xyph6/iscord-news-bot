@@ -13,26 +13,26 @@ Postet neue offizielle News zu **Aion 2** und **League of Legends** automatisch 
 
 ## Einrichtung (ca. 5 Minuten, kostenlos über GitHub Actions)
 
-### 1. Webhook in Discord anlegen
-Server-Einstellungen → **Integrationen** → **Webhooks** → **Neuer Webhook** → Namen (z. B. „News-Bot“) und deinen **News-Channel** wählen → **Webhook-URL kopieren**.
-Die URL ist wie ein Passwort: nirgends öffentlich posten.
+### 1. Webhooks in Discord anlegen (einer pro Spiel)
+Für jeden Channel: Rechtsklick auf den Channel → **Kanal bearbeiten** → **Integrationen** → **Webhooks** → **Neuer Webhook** → **Webhook-URL kopieren**.
+Mach das einmal im Aion-2-Channel und einmal im LoL-Channel. Die URLs sind wie Passwörter: nirgends öffentlich posten.
 
 ### 2. Repository auf GitHub anlegen
-1. Auf github.com → **New repository**, z. B. `discord-news-bot`, **Private** wählen, erstellen.
-2. **Add file → Upload files** und diese Dateien hochladen: `news_bot.py`, `sources.json`, `README.md`, `.gitignore`.
-3. Die Workflow-Datei anlegen: **Add file → Create new file**, als Namen `.github/workflows/news.yml` eintippen und den Inhalt der Datei `news.yml` hineinkopieren. Commit.
+Privates Repo anlegen und `news_bot.py`, `sources.json`, `README.md`, `.gitignore` und `.github/workflows/news.yml` hochladen.
 
-### 3. Webhook als Secret hinterlegen
+### 3. Webhooks als Secrets hinterlegen
 Im Repo: **Settings → Secrets and variables → Actions → New repository secret**
-- Name: `DISCORD_WEBHOOK_URL`
-- Wert: die kopierte Webhook-URL
+- `DISCORD_WEBHOOK_AION2` = Webhook-URL des Aion-2-Channels
+- `DISCORD_WEBHOOK_LOL` = Webhook-URL des LoL-Channels (alternativ wird `DISCORD_WEBHOOK_URL` genutzt)
+
+Fehlt ein Secret, wird das jeweilige Spiel übersprungen, statt in den falschen Channel zu posten.
 
 ### 4. Starten
 **Actions**-Tab → Workflow „Discord News“ → **Run workflow**. Nach ca. 1 Minute sollten die ersten zwei Posts (je Spiel die neueste News) im Channel sein. Danach läuft er automatisch alle 10 Minuten.
 
 ## Alternative: auf eigenem PC / Raspberry Pi / Server
 ```bash
-export DISCORD_WEBHOOK_URL="..."   # Windows PowerShell: $env:DISCORD_WEBHOOK_URL="..."
+export DISCORD_WEBHOOK_AION2="..." DISCORD_WEBHOOK_LOL="..."
 python3 news_bot.py --loop 300     # prüft alle 5 Minuten, läuft dauerhaft
 ```
 Testen ohne zu posten: `python3 news_bot.py --dry-run`

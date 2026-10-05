@@ -23,7 +23,8 @@ jobs:
           python-version: "3.12"
       - name: News prüfen und posten
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_AION2: ${{ secrets.DISCORD_WEBHOOK_AION2 }}
+          DISCORD_WEBHOOK_LOL: ${{ secrets.DISCORD_WEBHOOK_LOL || secrets.DISCORD_WEBHOOK_URL }}
         run: python news_bot.py
       - name: Bereits gepostete News speichern
         run: |
