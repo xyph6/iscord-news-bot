@@ -9,6 +9,10 @@ on:
         description: "Optional: LoL-Artikel-URL nur anzeigen statt posten (zum Testen)"
         required: false
         default: ""
+      dry_run:
+        description: "Nur anzeigen, nichts posten (true/false)"
+        required: false
+        default: "false"
       probe_urls:
         description: "Optional: URLs (mit Leerzeichen getrennt) nur auf Abrufbarkeit testen"
         required: false
@@ -45,7 +49,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_AION2: ${{ secrets.DISCORD_WEBHOOK_AION2 }}
           DISCORD_WEBHOOK_LOL: ${{ secrets.DISCORD_WEBHOOK_LOL || secrets.DISCORD_WEBHOOK_URL }}
-        run: python news_bot.py
+        run: python news_bot.py ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
       - name: Bereits gepostete News speichern
         if: ${{ (github.event.inputs.preview_url == '' || github.event.inputs.preview_url == null) && (github.event.inputs.probe_urls == '' || github.event.inputs.probe_urls == null) }}
         run: |

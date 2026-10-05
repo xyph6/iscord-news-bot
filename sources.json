@@ -12,6 +12,20 @@
     "mention_role_id": "1556613714927554700"
   },
   {
+    "id": "aion2-korea",
+    "game": "Aion 2",
+    "label": "Korea-Vorschau (offizielle KR-Updatenotes, übersetzt)",
+    "type": "plaync",
+    "url": "https://api-community.plaync.com/aion2/board/update_ko/article?size=10",
+    "color": "#E0544F",
+    "enabled": true,
+    "webhook_env": "DISCORD_WEBHOOK_AION2",
+    "mention_role_id": "1556613714927554700",
+    "translate_to": "de",
+    "title_prefix": "🇰🇷",
+    "intro": "Offizielle Update-Notes aus Korea, automatisch übersetzt. Korea ist der globalen Version voraus, diese Inhalte kommen meist später auch zu uns."
+  },
+  {
     "id": "lol-news",
     "game": "League of Legends",
     "label": "Offizielle News (leagueoflegends.com)",

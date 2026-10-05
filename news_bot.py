@@ -19,6 +19,7 @@ import os
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -270,8 +271,58 @@ def fetch_lol_article(item):
             item["image"] = img.group(1)
 
 
-PARSERS = {"rss": parse_rss, "lol": parse_lol}
-DETAIL_FETCHERS = {"lol": fetch_lol_article}
+def parse_plaync(text, base_url):
+    """NCSoft-Community-Board (z. B. koreanische Aion-2-Updatenotes) über die JSON-API."""
+    items = []
+    for c in json.loads(text).get("contentList", []):
+        meta = c.get("contentMeta", c)
+        aid = meta.get("id") or c.get("id")
+        pattern = (meta.get("categoryBoard") or {}).get("boardUrlPattern") or "https://aion2.plaync.com/ko-kr/board/update/view?articleId={articleId}"
+        items.append({
+            "id": aid,
+            "title": clean_text(meta.get("title"), 250),
+            "url": pattern.replace("{articleId}", aid),
+            "api": base_url.split("?")[0].rstrip("/") + "/" + aid,
+            "summary": "",
+            "date": parse_date((meta.get("timestamps") or {}).get("postedAt")),
+            "image": meta.get("thumbnailUrl"),
+        })
+    return items
+
+
+def translate(text, target="de", source="auto"):
+    """Übersetzt Text über Google Translate (ohne API-Key), in Stücken, Zeilenumbrüche bleiben erhalten."""
+    out, batch = [], ""
+    def flush(b):
+        if not b.strip():
+            out.append(b)
+            return
+        data = urllib.parse.urlencode({"q": b}).encode()
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source}&tl={target}&dt=t"
+        req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+        out.append("".join(seg[0] for seg in res[0] if seg and seg[0]))
+        time.sleep(0.3)
+    for line in text.split("\n"):
+        if len(batch) + len(line) > 3500:
+            flush(batch)
+            batch = ""
+        batch = f"{batch}\n{line}" if batch else line
+    flush(batch)
+    t = "\n".join(out)
+    return "\n".join(_fix_bold(l) for l in t.split("\n"))
+
+
+def fetch_plaync_article(item):
+    data = json.loads(fetch(item["api"]))
+    article = data.get("article") or {}
+    body = (article.get("content") or {}).get("content") or ""
+    item["summary"] = html_to_discord(body)
+
+
+PARSERS = {"rss": parse_rss, "lol": parse_lol, "plaync": parse_plaync}
+DETAIL_FETCHERS = {"lol": fetch_lol_article, "plaync": fetch_plaync_article}
 
 
 def is_relevant(src, item):
@@ -472,8 +523,21 @@ def run_once(dry_run=False):
                     DETAIL_FETCHERS[src["type"]](item)
                 except Exception as e:
                     log(f"  Artikeltext nicht abrufbar ({e}), poste Kurzfassung")
+            if src.get("translate_to"):
+                try:
+                    item["title"] = translate(item["title"], src["translate_to"])
+                    item["summary"] = translate(item["summary"], src["translate_to"])
+                except Exception as e:
+                    log(f"  Übersetzung fehlgeschlagen ({e}), poste Original")
+            if src.get("title_prefix"):
+                item["title"] = f"{src['title_prefix']} {item['title']}"[:256]
+            if src.get("intro"):
+                item["summary"] = f"*{src['intro']}*\n\n{item['summary']}"
             if dry_run:
                 log(f"  [dry-run] {src['game']}: {item['title']} -> {item['url']}")
+                msgs = build_messages(src, item)
+                log(f"  [dry-run] {len(item['summary'] or '')} Zeichen -> {len(msgs)} Nachricht(en)")
+                print((item["summary"] or "")[:2500])
                 ok = True
             else:
                 ok = post_to_discord(webhook, src, item)
