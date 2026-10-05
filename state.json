@@ -224,5 +224,16 @@
   "6aa062386b722c561dc6a46c",
   "6aa99cb8a279104f7d9d5c34",
   "6ab2d738a279104f7d9d5d5b"
- ]
+ ],
+ "aion2-wartung": {
+  "notified": [],
+  "current": {
+   "id": "https://store.steampowered.com/news/app/3393110/view/689769594581155932",
+   "title": "Planmäßige Wartung: Sonntag 4. Oktober / Montag 5. Oktober",
+   "end": "2026-10-05T13:00:00+00:00"
+  }
+ },
+ "lol-status": {
+  "active": {}
+ }
 }
