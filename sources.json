@@ -9,7 +9,7 @@
     "enabled": true,
     "webhook_env": "DISCORD_WEBHOOK_AION2",
     "exclude_title": "Vielen Dank|Danke|Twitch|Drops|Gewinnspiel|Giveaway|Umfrage|Livestream|Wallpaper|Warnung vor dem Kauf",
-    "mention_role_id": "1556620843973349397"
+    "mention_role_id": "1556613714927554700"
   },
   {
     "id": "lol-news",
