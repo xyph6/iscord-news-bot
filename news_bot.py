@@ -377,6 +377,9 @@ def build_messages(source, item):
         if n == 1 and role:
             msg["content"] = f"<@&{role}>"
             msg["allowed_mentions"] = {"roles": [role]}
+        elif n == 1 and source.get("mention_everyone"):
+            msg["content"] = "@everyone"
+            msg["allowed_mentions"] = {"parse": ["everyone"]}
         messages.append(msg)
     return messages
 

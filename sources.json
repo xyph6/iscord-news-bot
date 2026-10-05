@@ -22,6 +22,7 @@
     "webhook_env": "DISCORD_WEBHOOK_LOL",
     "include_domains": [
       "www.leagueoflegends.com"
-    ]
+    ],
+    "mention_everyone": true
   }
 ]
