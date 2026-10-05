@@ -40,5 +40,7 @@ Testen ohne zu posten: `python3 news_bot.py --dry-run`
 ## Gut zu wissen
 - GitHub startet geplante Läufe nicht sekundengenau, oft mit ein paar Minuten Verzögerung. Für echtes „sofort“ die Loop-Variante auf einem eigenen Rechner nutzen.
 - GitHub pausiert geplante Workflows, wenn ein Repo 60 Tage keine Aktivität hat. Da der Bot bei jeder neuen News `state.json` committet, passiert das praktisch nicht; falls doch, im Actions-Tab wieder aktivieren.
+- **Inhalt statt Link:** Der Bot postet den Text der Meldung (Überschriften, Aufzählungen, Tabellen) direkt in Discord, bei sehr langen Meldungen (z. B. Patchnotes) die ersten ca. 3.800 Zeichen.
+- **Filter in `sources.json`:** `include_domains` (nur diese Seiten), `exclude_domains`, `include_title` / `exclude_title` (Regex auf den Titel). Für LoL kommen nur Artikel von leagueoflegends.com (keine Videos, Merch, Esports); für Aion 2 werden Dankes-, Twitch-Drops-, Gewinnspiel- und ähnliche Posts ignoriert.
 - Weitere Quelle hinzufügen: neuen Block in `sources.json` (Typ `rss` für jeden RSS/Atom-Feed). Nur offizielle Kanäle eintragen.
 - Ändert Riot den Aufbau der LoL-Seite, meldet der Bot im Actions-Log „keine Einträge gefunden“.

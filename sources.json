@@ -7,7 +7,8 @@
     "url": "https://store.steampowered.com/feeds/news/app/3393110/?l=german",
     "color": "#4FA3E0",
     "enabled": true,
-    "webhook_env": "DISCORD_WEBHOOK_AION2"
+    "webhook_env": "DISCORD_WEBHOOK_AION2",
+    "exclude_title": "Vielen Dank|Danke|Twitch|Drops|Gewinnspiel|Giveaway|Umfrage|Livestream|Wallpaper|Warnung vor dem Kauf"
   },
   {
     "id": "lol-news",
@@ -17,9 +18,9 @@
     "url": "https://www.leagueoflegends.com/de-de/news/",
     "color": "#C89B3C",
     "enabled": true,
-    "exclude_domains": [
-      "merch.riotgames.com"
-    ],
-    "webhook_env": "DISCORD_WEBHOOK_LOL"
+    "webhook_env": "DISCORD_WEBHOOK_LOL",
+    "include_domains": [
+      "www.leagueoflegends.com"
+    ]
   }
 ]

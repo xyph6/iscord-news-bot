@@ -51,6 +51,46 @@ def clean_text(text, limit=300):
     return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + " …"
 
 
+def html_to_discord(text, limit=3800):
+    """Wandelt HTML/BBCode in lesbaren Discord-Text (fett, Aufzählungen, Absätze) um."""
+    t = text or ""
+    # BBCode (Steam) auf HTML abbilden
+    t = re.sub(r"\[(/?)(h[1-6]|b|i|u|p|list|olist|table|tr|td|th)\]", r"<\1\2>", t)
+    t = re.sub(r"\[\*\]", "<li>", t)
+    t = re.sub(r"\[img\][^\[]*\[/img\]", "", t)
+    t = re.sub(r"\[url=[^\]]*\](.*?)\[/url\]", r"\1", t, flags=re.S)
+    t = re.sub(r"\[/?[a-z0-9*]+[^\]]*\]", "", t)
+    t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "", t)
+    t = re.sub(r"(?i)<h[1-6][^>]*>\s*", "\n\n**", t)
+    t = re.sub(r"(?i)\s*</h[1-6]>", "**\n", t)
+    t = re.sub(r"(?i)</?(strong|b)(\s[^>]*)?>", "**", t)
+    t = re.sub(r"(?i)<li(\s[^>]*)?>\s*", "\n• ", t)
+    t = re.sub(r"(?i)</t[dh]>\s*<t[dh](\s[^>]*)?>", " | ", t)
+    t = re.sub(r"(?i)<br\s*/?>|</(p|div|tr|ul|ol|table|list|olist)>", "\n", t)
+    t = re.sub(r"(?i)<(p|div|ul|ol|table)(\s[^>]*)?>", "\n", t)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = html.unescape(t).replace("\xa0", " ")
+    t = re.sub(r"\*\*\s*\*\*", "", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r" *\n *", "\n", t)
+    t = re.sub(r"\n{3,}", "\n\n", t).strip()
+    if len(t) > limit:
+        cut = t[:limit]
+        cut = cut[: max(cut.rfind("\n"), limit // 2)].rstrip()
+        if cut.count("**") % 2:
+            cut += "**"
+        t = cut + "\n…"
+    return t
+
+
+def first_image(text):
+    m = re.search(r'<img[^>]+src="([^"]+)"', text or "") or re.search(r"\[img\]([^\[]+)\[/img\]", text or "")
+    if not m:
+        return None
+    url = m.group(1).replace("{STEAM_CLAN_IMAGE}", "https://clan.akamai.steamstatic.com/images")
+    return url if url.startswith("http") else None
+
+
 def parse_date(value):
     if not value:
         return None
@@ -73,6 +113,7 @@ def parse_rss(text, base_url):
     for it in root.iter("item"):
         link = (it.findtext("link") or "").strip()
         guid = (it.findtext("guid") or link).strip()
+        desc = it.findtext("description") or ""
         img = None
         enc = it.find("enclosure")
         if enc is not None and (enc.get("type") or "").startswith("image"):
@@ -81,9 +122,9 @@ def parse_rss(text, base_url):
             "id": guid or link,
             "title": clean_text(it.findtext("title"), 250),
             "url": link,
-            "summary": clean_text(it.findtext("description")),
+            "summary": html_to_discord(desc),
+            "image": img or first_image(desc),
             "date": parse_date(it.findtext("pubDate")),
-            "image": img,
         })
     ns = "{http://www.w3.org/2005/Atom}"
     for entry in root.iter(f"{ns}entry"):
@@ -187,7 +228,46 @@ def parse_lol(text, base_url):
     return items
 
 
+def fetch_lol_article(item):
+    """Holt den Artikeltext einer leagueoflegends.com-Seite (für den Post-Inhalt)."""
+    page = fetch(item["url"])
+    parts = []
+    m = re.search(r'<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+    if m:
+        for d in _walk(json.loads(m.group(1))):
+            for key in ("body", "richText", "html", "content"):
+                val = d.get(key)
+                if isinstance(val, str) and "<" in val and len(val) > 40 and val not in parts:
+                    parts.append(val)
+    text = html_to_discord("\n".join(parts)) if parts else ""
+    if not text:
+        og = re.search(r'<meta[^>]+(?:property|name)="(?:og:)?description"[^>]+content="([^"]*)"', page)
+        text = html.unescape(og.group(1)) if og else ""
+    if text:
+        item["summary"] = text
+    if not item.get("image"):
+        img = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', page)
+        if img:
+            item["image"] = img.group(1)
+
+
 PARSERS = {"rss": parse_rss, "lol": parse_lol}
+DETAIL_FETCHERS = {"lol": fetch_lol_article}
+
+
+def is_relevant(src, item):
+    """Filter aus sources.json: nur bestimmte Domains / Titel, Ausschlüsse."""
+    domain = re.sub(r"^https?://([^/]+).*", r"\1", item["url"] or "")
+    if src.get("include_domains") and domain not in src["include_domains"]:
+        return False
+    if domain in src.get("exclude_domains", []):
+        return False
+    title = item["title"]
+    if src.get("include_title") and not re.search(src["include_title"], title, re.I):
+        return False
+    if src.get("exclude_title") and re.search(src["exclude_title"], title, re.I):
+        return False
+    return True
 
 
 # ---------- Discord ----------
@@ -261,8 +341,6 @@ def run_once(dry_run=False):
             log(f"{src['id']}: Abruf fehlgeschlagen: {e}")
             continue
         items = [i for i in items if i["id"] and i["title"]]
-        excluded = src.get("exclude_domains", [])
-        items = [i for i in items if not any(f"//{d}" in i["url"] for d in excluded)]
         if not items:
             log(f"{src['id']}: keine Einträge gefunden (Seitenaufbau geändert?)")
             continue
@@ -270,17 +348,26 @@ def run_once(dry_run=False):
         first_run = seen is None
         seen = seen or []
         new = [i for i in items if i["id"] not in seen]
+        irrelevant = [i for i in new if not is_relevant(src, i)]
+        new = [i for i in new if is_relevant(src, i)]
         new.sort(key=lambda i: i["date"] or datetime.min.replace(tzinfo=timezone.utc))
         if first_run:
             # Beim allerersten Lauf nicht das ganze Archiv posten, nur den neuesten Eintrag.
             to_post, skip = new[-1:], new[:-1]
         else:
             to_post, skip = new, []
-        log(f"{src['id']}: {len(items)} Einträge, {len(to_post)} neu")
+        log(f"{src['id']}: {len(items)} Einträge, {len(to_post)} neu und relevant, {len(irrelevant)} ignoriert")
+        for i in irrelevant:
+            log(f"  ignoriert: {i['title']}")
         for item in to_post:
             if posted >= MAX_POSTS_PER_RUN:
                 log("Maximale Posts pro Lauf erreicht, Rest folgt beim nächsten Lauf")
                 break
+            if src["type"] in DETAIL_FETCHERS:
+                try:
+                    DETAIL_FETCHERS[src["type"]](item)
+                except Exception as e:
+                    log(f"  Artikeltext nicht abrufbar ({e}), poste Kurzfassung")
             if dry_run:
                 log(f"  [dry-run] {src['game']}: {item['title']} -> {item['url']}")
                 ok = True
@@ -290,7 +377,7 @@ def run_once(dry_run=False):
             if ok:
                 seen.append(item["id"])
                 posted += 1
-        seen.extend(i["id"] for i in skip)
+        seen.extend(i["id"] for i in skip + irrelevant)
         state[src["id"]] = seen[-MAX_SEEN_PER_SOURCE:]
     if not dry_run:
         save_state(state)
