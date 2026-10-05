@@ -56,4 +56,4 @@ jobs:
           git config user.name "news-bot"
           git config user.email "news-bot@users.noreply.github.com"
           git add state.json
-          git diff --cached --quiet || (git commit -m "state aktualisiert" && git push)
+          git diff --cached --quiet || (git commit -m "state aktualisiert" && git push) 
