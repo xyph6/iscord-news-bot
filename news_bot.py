@@ -71,11 +71,14 @@ def html_to_discord(text, limit=None):
     t = re.sub(r"(?i)<br\s*/?>|</(p|div|tr|ul|ol|table|list|olist)>", "\n", t)
     t = re.sub(r"(?i)<(p|div|ul|ol|table)(\s[^>]*)?>", "\n", t)
     t = re.sub(r"<[^>]+>", "", t)
-    t = html.unescape(t).replace("\xa0", " ")
+    t = html.unescape(t).replace("\xa0", " ").replace("\u200b", "")
     t = re.sub(r"\*\*([ \t]*)\*\*(?=\S)", r"\1", t)  # direkt aneinanderstoßende Fett-Blöcke zusammenführen
     t = re.sub(r"[ \t]+", " ", t)
     t = "\n".join(_fix_bold(line) for line in t.split("\n"))
     t = re.sub(r" *\n *", "\n", t)
+    t = re.sub(r"•\s*\n+\s*(?=\S)", "• ", t)          # Aufzählungspunkt und Text zusammenführen
+    t = re.sub(r"\n+\|\n+", " | ", t)                   # Tabellenzellen in eine Zeile
+    t = re.sub(r"\n\n+(?=• )", "\n", t)                 # keine Leerzeilen zwischen Aufzählungspunkten
     t = re.sub(r"\n{3,}", "\n\n", t).strip()
     if limit and len(t) > limit:
         cut = t[:limit]
