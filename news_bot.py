@@ -61,6 +61,7 @@ def html_to_discord(text, limit=None):
     t = re.sub(r"\[url=[^\]]*\](.*?)\[/url\]", r"\1", t, flags=re.S)
     t = re.sub(r"\[/?[a-z0-9*]+[^\]]*\]", "", t)
     t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "", t)
+    t = re.sub(r"(?is)<(strong|b|h[1-6])(\s[^>]*)?>(\s|&nbsp;|<br\s*/?>)*</\1>", " ", t)  # leere Fett-/Überschrift-Tags
     t = re.sub(r"(?i)<h[1-6][^>]*>\s*", "\n\n**", t)
     t = re.sub(r"(?i)\s*</h[1-6]>", "**\n", t)
     t = re.sub(r"(?i)</?(strong|b)(\s[^>]*)?>", "**", t)
@@ -70,7 +71,7 @@ def html_to_discord(text, limit=None):
     t = re.sub(r"(?i)<(p|div|ul|ol|table)(\s[^>]*)?>", "\n", t)
     t = re.sub(r"<[^>]+>", "", t)
     t = html.unescape(t).replace("\xa0", " ")
-    t = re.sub(r"\*\*\s*\*\*", "", t)
+    t = re.sub(r"\*\*([ \t]*)\*\*(?=\S)", r"\1", t)  # direkt aneinanderstoßende Fett-Blöcke zusammenführen
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r" *\n *", "\n", t)
     t = re.sub(r"\n{3,}", "\n\n", t).strip()
@@ -237,7 +238,8 @@ def fetch_lol_article(item):
         for d in _walk(json.loads(m.group(1))):
             for key in ("body", "richText", "html", "content"):
                 val = d.get(key)
-                if isinstance(val, str) and "<" in val and len(val) > 40 and val not in parts:
+                if (isinstance(val, str) and "<" in val and len(val) > 40 and val not in parts
+                        and "Passwort vergessen" not in val and "forgot your" not in val.lower()):
                     parts.append(val)
     text = html_to_discord("\n".join(parts)) if parts else ""
     if not text:
