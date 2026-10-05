@@ -1,0 +1,20 @@
+[
+  {
+    "id": "aion2-steam",
+    "game": "Aion 2",
+    "label": "Offizielle News (Steam)",
+    "type": "rss",
+    "url": "https://store.steampowered.com/feeds/news/app/3393110/?l=german",
+    "color": "#4FA3E0",
+    "enabled": true
+  },
+  {
+    "id": "lol-news",
+    "game": "League of Legends",
+    "label": "Offizielle News (leagueoflegends.com)",
+    "type": "lol",
+    "url": "https://www.leagueoflegends.com/de-de/news/",
+    "color": "#C89B3C",
+    "enabled": true
+  }
+]

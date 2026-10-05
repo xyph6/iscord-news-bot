@@ -1,0 +1,33 @@
+name: Discord News
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # alle 10 Minuten (GitHub startet geplante Läufe oft ein paar Minuten später)
+  workflow_dispatch:          # manuell starten über "Run workflow"
+
+permissions:
+  contents: write             # damit state.json zurückgeschrieben werden kann
+
+concurrency:
+  group: discord-news
+  cancel-in-progress: false
+
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: News prüfen und posten
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python news_bot.py
+      - name: Bereits gepostete News speichern
+        run: |
+          git config user.name "news-bot"
+          git config user.email "news-bot@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || (git commit -m "state aktualisiert" && git push)
