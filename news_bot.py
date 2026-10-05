@@ -500,6 +500,21 @@ def main():
             try:
                 body = fetch(url)
                 snippet = re.sub(r"\s+", " ", body if len(args.probe) == 1 else body[:400])
+                if body.lstrip().startswith("{"):
+                    def tree(o, path="", depth=0):
+                        if depth > 6:
+                            return
+                        if isinstance(o, dict):
+                            for k, v in o.items():
+                                tree(v, f"{path}.{k}", depth + 1)
+                        elif isinstance(o, list):
+                            print(f"     {path}[] ({len(o)})")
+                            if o:
+                                tree(o[0], f"{path}[0]", depth + 1)
+                        else:
+                            print(f"     {path} = {str(o)[:120]!r}")
+                    tree(json.loads(body))
+                    continue
                 print(f"OK   {len(body):>8} Zeichen  {url}\n     {snippet}")
             except Exception as e:
                 print(f"FAIL {e}  {url}")
