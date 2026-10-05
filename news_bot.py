@@ -73,6 +73,7 @@ def html_to_discord(text, limit=None):
     t = html.unescape(t).replace("\xa0", " ")
     t = re.sub(r"\*\*([ \t]*)\*\*(?=\S)", r"\1", t)  # direkt aneinanderstoßende Fett-Blöcke zusammenführen
     t = re.sub(r"[ \t]+", " ", t)
+    t = "\n".join(_fix_bold(line) for line in t.split("\n"))
     t = re.sub(r" *\n *", "\n", t)
     t = re.sub(r"\n{3,}", "\n\n", t).strip()
     if limit and len(t) > limit:
@@ -82,6 +83,22 @@ def html_to_discord(text, limit=None):
             cut += "**"
         t = cut + "\n…"
     return t
+
+
+def _fix_bold(line):
+    """Fettdruck pro Zeile reparieren: kaputte/leere ** entfernen, Leerzeichen innen kürzen."""
+    if line.count("**") % 2 or "***" in line:
+        return re.sub(r"\*+", "", line)
+    parts = line.split("**")
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2 == 0:
+            out.append(part)
+        elif part.strip():
+            lead = " " if part[:1].isspace() else ""
+            trail = " " if part[-1:].isspace() else ""
+            out.append(f"{lead}**{part.strip()}**{trail}")
+    return "".join(out)
 
 
 def first_image(text):
@@ -385,6 +402,9 @@ def preview(url, source_type):
         DETAIL_FETCHERS[source_type](item)
     msgs = build_messages({"game": "Vorschau"}, item)
     print(f"{len(item['summary'])} Zeichen -> {len(msgs)} Nachricht(en)")
+    bad = [l for l in item["summary"].split("\n") if l.count("**") % 2 or "***" in l]
+    print(f"Zeilen mit kaputtem Fettdruck: {len(bad)}")
+    print(f"Längster Teil: {max(len(m['embeds'][0].get('description', '')) for m in msgs)} Zeichen (Limit 4096)")
     for m in msgs:
         d = m["embeds"][0].get("description", "")
         print(f"--- Teil ({len(d)} Zeichen) ---")
