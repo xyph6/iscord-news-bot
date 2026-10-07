@@ -293,28 +293,64 @@ def parse_plaync(text, base_url):
     return items
 
 
+HANGUL = re.compile(r"[\uac00-\ud7a3]")
+
+
+def _gtx(text, target, source):
+    data = urllib.parse.urlencode({"q": text}).encode()
+    url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source}&tl={target}&dt=t"
+    req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+            time.sleep(0.3)
+            return "".join(seg[0] for seg in res[0] if seg and seg[0])
+        except (urllib.error.URLError, ValueError):
+            if attempt == 2:
+                raise
+            time.sleep(2 * (attempt + 1))
+
+
 def translate(text, target="de", source="auto"):
-    """Übersetzt Text über Google Translate (ohne API-Key), in Stücken, Zeilenumbrüche bleiben erhalten."""
-    out, batch = [], ""
+    """Übersetzt Text über Google Translate (ohne API-Key), in Stücken, Zeilenumbrüche bleiben erhalten.
+
+    Prüft danach jede Zeile: steht noch Koreanisch drin oder fehlen Zeilen, wird zeilenweise nachübersetzt.
+    """
+    lines = text.split("\n")
+    out = []
+    batch = []
+
     def flush(b):
-        if not b.strip():
-            out.append(b)
+        if not "".join(b).strip():
+            out.extend(b)
             return
-        data = urllib.parse.urlencode({"q": b}).encode()
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source}&tl={target}&dt=t"
-        req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            res = json.loads(resp.read().decode("utf-8"))
-        out.append("".join(seg[0] for seg in res[0] if seg and seg[0]))
-        time.sleep(0.3)
-    for line in text.split("\n"):
-        if len(batch) + len(line) > 3500:
+        res = _gtx("\n".join(b), target, source).split("\n")
+        if len(res) != len(b):  # Zeilen gingen verloren oder wurden zusammengezogen
+            log(f"  Übersetzung: {len(b)} Zeilen rein, {len(res)} raus, übersetze dieses Stück zeilenweise")
+            res = [_gtx(l, target, source) if l.strip() else l for l in b]
+        out.extend(res)
+
+    size = 0
+    for line in lines:
+        if batch and size + len(line) > 1500:
             flush(batch)
-            batch = ""
-        batch = f"{batch}\n{line}" if batch else line
+            batch, size = [], 0
+        batch.append(line)
+        size += len(line) + 1
     flush(batch)
-    t = "\n".join(out)
-    return "\n".join(_fix_bold(l) for l in t.split("\n"))
+    first = sum(1 for l in out if HANGUL.search(l))
+    if first:
+        log(f"  Übersetzung: {first} Zeile(n) im ersten Durchgang unübersetzt, übersetze sie einzeln nach")
+    # Zeilen, in denen noch Koreanisch steht, einzeln nachübersetzen
+    for i, l in enumerate(out):
+        if HANGUL.search(l):
+            retry = _gtx(lines[i] if i < len(lines) else l, target, "ko")
+            out[i] = retry if not HANGUL.search(retry) or len(HANGUL.findall(retry)) < len(HANGUL.findall(l)) else l
+    left = sum(1 for l in out if HANGUL.search(l))
+    if left:
+        log(f"  WARNUNG: {left} Zeile(n) enthalten nach der Übersetzung noch Koreanisch")
+    return "\n".join(_fix_bold(l) for l in out)
 
 
 def fetch_plaync_article(item):
@@ -634,9 +670,17 @@ def post_to_discord(webhook, source, item):
 
 def preview(url, source_type):
     """Zeigt, was für einen Artikel gepostet würde (zum Prüfen, ohne zu posten)."""
-    item = {"id": url, "title": "Vorschau", "url": url, "summary": "", "date": None, "image": None}
+    item = {"id": url, "title": "Vorschau", "url": url, "api": url, "summary": "", "date": None, "image": None}
+    if "api-community.plaync.com" in url:
+        source_type = "plaync"
     if source_type in DETAIL_FETCHERS:
         DETAIL_FETCHERS[source_type](item)
+    if source_type == "plaync":
+        orig = item["summary"]
+        item["summary"] = translate(orig, "de", "ko")
+        print(f"Original: {len(orig.splitlines())} Zeilen, {sum(1 for l in orig.splitlines() if HANGUL.search(l))} mit Koreanisch")
+        print(f"Übersetzt: {len(item['summary'].splitlines())} Zeilen, "
+              f"{sum(1 for l in item['summary'].splitlines() if HANGUL.search(l))} noch mit Koreanisch")
     msgs = build_messages({"game": "Vorschau"}, item)
     print(f"{len(item['summary'])} Zeichen -> {len(msgs)} Nachricht(en)")
     bad = [l for l in item["summary"].split("\n") if l.count("**") % 2 or "***" in l]
@@ -724,8 +768,9 @@ def run_once(dry_run=False):
                     log(f"  Artikeltext nicht abrufbar ({e}), poste Kurzfassung")
             if src.get("translate_to"):
                 try:
-                    item["title"] = translate(item["title"], src["translate_to"])
-                    item["summary"] = translate(item["summary"], src["translate_to"])
+                    lang = src.get("translate_from", "auto")
+                    item["title"] = translate(item["title"], src["translate_to"], lang)
+                    item["summary"] = translate(item["summary"], src["translate_to"], lang)
                 except Exception as e:
                     log(f"  Übersetzung fehlgeschlagen ({e}), poste Original")
             if src.get("title_prefix"):
