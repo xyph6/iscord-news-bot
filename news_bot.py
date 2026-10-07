@@ -777,6 +777,10 @@ def run_once(dry_run=False):
                 item["title"] = f"{src['title_prefix']} {item['title']}"[:256]
             if src.get("intro"):
                 item["summary"] = f"*{src['intro']}*\n\n{item['summary']}"
+            post_src = src
+            if item["id"] in state.get("_repost", []):  # korrigierte Neufassung: ohne erneuten Ping
+                post_src = {k: v for k, v in src.items() if k not in ("mention_role_id", "mention_everyone")}
+                item["title"] = f"{item['title']} (korrigierte Übersetzung)"[:256]
             if dry_run:
                 log(f"  [dry-run] {src['game']}: {item['title']} -> {item['url']}")
                 msgs = build_messages(src, item)
@@ -784,7 +788,9 @@ def run_once(dry_run=False):
                 print((item["summary"] or "")[:2500])
                 ok = True
             else:
-                ok = post_to_discord(webhook, src, item)
+                ok = post_to_discord(webhook, post_src, item)
+                if ok and item["id"] in state.get("_repost", []):
+                    state["_repost"].remove(item["id"])
                 time.sleep(1)
             if ok:
                 seen.append(item["id"])
