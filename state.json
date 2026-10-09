@@ -252,12 +252,13 @@
  "aion2-wartung": {
   "notified": [
    "https://store.steampowered.com/news/app/3393110/view/689769594581155932",
-   "https://store.steampowered.com/news/app/3393110/view/712288224875120803"
+   "https://store.steampowered.com/news/app/3393110/view/712288224875120803",
+   "https://store.steampowered.com/news/app/3393110/view/712288859283522476"
   ],
   "current": {
    "id": "https://store.steampowered.com/news/app/3393110/view/712288859283522476",
-   "title": "[Mitteilung] Temporäre Wartung | 8 Oktober (PDT) / 9 Oktober (CEST)",
-   "end": "2026-10-09T07:30:00+00:00"
+   "title": "[Mitteilung] Temporäre Wartung | 9 Oktober (CEST) (Abgeschlossen)",
+   "end": "2026-10-08T13:01:06+00:00"
   }
  },
  "lol-status": {
