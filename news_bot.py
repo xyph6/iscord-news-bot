@@ -296,61 +296,88 @@ def parse_plaync(text, base_url):
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
 
 
+class TranslationError(Exception):
+    pass
+
+
 def _gtx(text, target, source):
     data = urllib.parse.urlencode({"q": text}).encode()
     url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source}&tl={target}&dt=t"
     req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT})
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 res = json.loads(resp.read().decode("utf-8"))
-            time.sleep(0.3)
+            time.sleep(1)  # Google nicht zu schnell hintereinander anfragen
             return "".join(seg[0] for seg in res[0] if seg and seg[0])
-        except (urllib.error.URLError, ValueError):
-            if attempt == 2:
-                raise
-            time.sleep(2 * (attempt + 1))
+        except urllib.error.HTTPError as e:
+            if attempt == 4:
+                raise TranslationError(f"Übersetzer antwortet nicht ({e})")
+            time.sleep(30 * (attempt + 1) if e.code == 429 else 3 * (attempt + 1))  # 429: Pause, dann neu
+        except (urllib.error.URLError, ValueError) as e:
+            if attempt == 4:
+                raise TranslationError(f"Übersetzer nicht erreichbar ({e})")
+            time.sleep(3 * (attempt + 1))
 
 
 def translate(text, target="de", source="auto"):
-    """Übersetzt Text über Google Translate (ohne API-Key), in Stücken, Zeilenumbrüche bleiben erhalten.
+    """Übersetzt Text über Google Translate (ohne API-Key), Zeilenumbrüche bleiben erhalten.
 
-    Prüft danach jede Zeile: steht noch Koreanisch drin oder fehlen Zeilen, wird zeilenweise nachübersetzt.
+    Es werden nur Zeilen mit koreanischer Schrift übersetzt, in Stücken. Gehen in einem Stück Zeilen
+    verloren, wird es halbiert und erneut übersetzt. Bleibt am Ende Koreanisch übrig, gibt es einen
+    Fehler (TranslationError), damit nichts unübersetzt gepostet wird.
     """
     lines = text.split("\n")
-    out = []
-    batch = []
+    out = list(lines)
+    todo = [i for i, l in enumerate(lines) if HANGUL.search(l)]
+    if source not in ("ko", "auto"):
+        todo = [i for i, l in enumerate(lines) if l.strip()]
 
-    def flush(b):
-        if not "".join(b).strip():
-            out.extend(b)
-            return
-        res = _gtx("\n".join(b), target, source).split("\n")
-        if len(res) != len(b):  # Zeilen gingen verloren oder wurden zusammengezogen
-            log(f"  Übersetzung: {len(b)} Zeilen rein, {len(res)} raus, übersetze dieses Stück zeilenweise")
-            res = [_gtx(l, target, source) if l.strip() else l for l in b]
-        out.extend(res)
+    def run(idx):
+        res = _gtx("\n".join(lines[i] for i in idx), target, source).split("\n")
+        if len(res) == len(idx):
+            for i, r in zip(idx, res):
+                out[i] = r
+        elif len(idx) == 1:
+            out[idx[0]] = " ".join(res)
+        else:  # Zeilen gingen verloren oder wurden zusammengezogen: halbieren
+            mid = len(idx) // 2
+            run(idx[:mid])
+            run(idx[mid:])
 
-    size = 0
-    for line in lines:
-        if batch and size + len(line) > 1500:
-            flush(batch)
+    batch, size = [], 0
+    for i in todo:
+        if batch and size + len(lines[i]) > 1500:
+            run(batch)
             batch, size = [], 0
-        batch.append(line)
-        size += len(line) + 1
-    flush(batch)
-    first = sum(1 for l in out if HANGUL.search(l))
-    if first:
-        log(f"  Übersetzung: {first} Zeile(n) im ersten Durchgang unübersetzt, übersetze sie einzeln nach")
-    # Zeilen, in denen noch Koreanisch steht, einzeln nachübersetzen
-    for i, l in enumerate(out):
-        if HANGUL.search(l):
-            retry = _gtx(lines[i] if i < len(lines) else l, target, "ko")
-            out[i] = retry if not HANGUL.search(retry) or len(HANGUL.findall(retry)) < len(HANGUL.findall(l)) else l
-    left = sum(1 for l in out if HANGUL.search(l))
+        batch.append(i)
+        size += len(lines[i]) + 1
+    if batch:
+        run(batch)
+    left = [i for i in todo if HANGUL.search(out[i])]
     if left:
-        log(f"  WARNUNG: {left} Zeile(n) enthalten nach der Übersetzung noch Koreanisch")
+        log(f"  Übersetzung: {len(left)} Zeile(n) noch auf Koreanisch, übersetze sie einzeln nach")
+        for i in left:
+            out[i] = _gtx(lines[i], target, "ko")
+    left = [i for i in todo if HANGUL.search(out[i])]
+    if left:
+        raise TranslationError(f"{len(left)} Zeile(n) blieben unübersetzt")
     return "\n".join(_fix_bold(l) for l in out)
+
+
+GERMAN_WORDS = re.compile(r"\b(der|die|das|und|ist|wird|werden|wurde|wurden|ein|eine|einen|mit|für|von|auf|im|in|zu|nicht|bei|des|den|dem|sie|es|als|auch)\b", re.I)
+
+
+def check_german(title, text):
+    """Prüft vor dem Posten, ob ein übersetzter Beitrag wirklich Deutsch ist. Gibt einen Fehlertext zurück oder None."""
+    full = f"{title}\n{text}"
+    korean = [l for l in full.split("\n") if HANGUL.search(l)]
+    if korean:
+        return f"{len(korean)} Zeile(n) enthalten noch Koreanisch, z. B.: {korean[0].strip()[:80]}"
+    words = re.findall(r"[A-Za-zÄÖÜäöüß]+", text)
+    if len(words) >= 30 and len(GERMAN_WORDS.findall(text)) / len(words) < 0.08:
+        return "Text sieht nicht nach Deutsch aus (zu wenige deutsche Wörter)"
+    return None
 
 
 def fetch_plaync_article(item):
@@ -681,6 +708,9 @@ def preview(url, source_type):
         print(f"Original: {len(orig.splitlines())} Zeilen, {sum(1 for l in orig.splitlines() if HANGUL.search(l))} mit Koreanisch")
         print(f"Übersetzt: {len(item['summary'].splitlines())} Zeilen, "
               f"{sum(1 for l in item['summary'].splitlines() if HANGUL.search(l))} noch mit Koreanisch")
+        words = re.findall(r"[A-Za-zÄÖÜäöüß]+", item["summary"])
+        print(f"Deutsch-Prüfung: {check_german('', item['summary']) or 'OK'} "
+              f"(Anteil deutscher Füllwörter {len(GERMAN_WORDS.findall(item['summary'])) / max(len(words), 1):.0%})")
     msgs = build_messages({"game": "Vorschau"}, item)
     print(f"{len(item['summary'])} Zeichen -> {len(msgs)} Nachricht(en)")
     bad = [l for l in item["summary"].split("\n") if l.count("**") % 2 or "***" in l]
@@ -771,8 +801,13 @@ def run_once(dry_run=False):
                     lang = src.get("translate_from", "auto")
                     item["title"] = translate(item["title"], src["translate_to"], lang)
                     item["summary"] = translate(item["summary"], src["translate_to"], lang)
+                    problem = check_german(item["title"], item["summary"])
+                    if problem:
+                        raise TranslationError(problem)
                 except Exception as e:
-                    log(f"  Übersetzung fehlgeschlagen ({e}), poste Original")
+                    # Nie unübersetzt posten: Eintrag bleibt offen und wird beim nächsten Lauf neu versucht
+                    log(f"  Nicht gepostet, Übersetzung nicht in Ordnung ({e}). Neuer Versuch beim nächsten Lauf: {item['title']}")
+                    continue
             if src.get("title_prefix"):
                 item["title"] = f"{src['title_prefix']} {item['title']}"[:256]
             if src.get("intro"):
