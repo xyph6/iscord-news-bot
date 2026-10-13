@@ -24,7 +24,8 @@
   "https://store.steampowered.com/news/app/3393110/view/712288859283523639",
   "https://store.steampowered.com/news/app/3393110/view/712288859283523636",
   "https://store.steampowered.com/news/app/3393110/view/712288224875120013",
-  "https://store.steampowered.com/news/app/3393110/view/712288859283524485"
+  "https://store.steampowered.com/news/app/3393110/view/712288859283524485",
+  "https://store.steampowered.com/news/app/3393110/view/712288859283524733"
  ],
  "lol-news": [
   "https://www.leagueoflegends.com/de-de/news/dev/tldw-s1-2026-theme-gameplay-more-dev-update",
@@ -240,7 +241,8 @@
   "https://www.youtube.com/watch?v=onO7lsYCzm4",
   "https://www.youtube.com/watch?v=mlFxxNsExJc",
   "https://www.youtube.com/watch?v=aex5O9MwfLo",
-  "https://www.youtube.com/watch?v=w9VK9HzBPVM"
+  "https://www.youtube.com/watch?v=w9VK9HzBPVM",
+  "https://www.youtube.com/watch?v=4n1lAAnqCn0"
  ],
  "aion2-korea": [
   "6abc11b8d97eae18cc40e18d",
@@ -262,9 +264,9 @@
    "https://store.steampowered.com/news/app/3393110/view/712288859283522476"
   ],
   "current": {
-   "id": "https://store.steampowered.com/news/app/3393110/view/712288859283522476",
-   "title": "[Mitteilung] Temporäre Wartung | 9 Oktober (CEST) (Abgeschlossen)",
-   "end": "2026-10-08T13:01:06+00:00"
+   "id": "https://store.steampowered.com/news/app/3393110/view/712288859283524733",
+   "title": "[Mitteilung] Wartungsarbeiten | 13 Oktober (PDT) / 14 Oktober (CEST)",
+   "end": "2026-10-14T09:30:00+00:00"
   }
  },
  "lol-status": {
