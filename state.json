@@ -50,7 +50,8 @@
   "https://store.steampowered.com/news/app/3393110/view/675135430408018568",
   "https://store.steampowered.com/news/app/3393110/view/675135430408017015",
   "https://store.steampowered.com/news/app/3393110/view/675136064593068033",
-  "https://store.steampowered.com/news/app/3393110/view/675136064593068107"
+  "https://store.steampowered.com/news/app/3393110/view/675136064593068107",
+  "https://store.steampowered.com/news/app/3393110/view/675136064593068039"
  ],
  "lol-news": [
   "https://www.leagueoflegends.com/de-de/news/dev/tldw-s1-2026-theme-gameplay-more-dev-update",
@@ -314,12 +315,13 @@
    "https://store.steampowered.com/news/app/3393110/view/712288859283522476",
    "https://store.steampowered.com/news/app/3393110/view/712288859283525028",
    "https://store.steampowered.com/news/app/3393110/view/670631196372239639",
-   "https://store.steampowered.com/news/app/3393110/view/675135430408017002"
+   "https://store.steampowered.com/news/app/3393110/view/675135430408017002",
+   "https://store.steampowered.com/news/app/3393110/view/675135430408018568"
   ],
   "current": {
    "id": "https://store.steampowered.com/news/app/3393110/view/675135430408018568",
-   "title": "[Mitteilung] Wartungsarbeiten | 27. Oktober (PDT) / 28. Oktober (CET)",
-   "end": "2026-10-28T10:30:00+00:00"
+   "title": "[Mitteilung] Wartungsarbeiten | 27. Oktober (PDT) / 28. Oktober (CET) (Beendet)",
+   "end": "2026-10-27T11:00:29+00:00"
   }
  },
  "lol-status": {
