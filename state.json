@@ -64,7 +64,8 @@
   "https://store.steampowered.com/news/app/3393110/view/675136702174462481",
   "https://store.steampowered.com/news/app/3393110/view/675136064593071679",
   "https://store.steampowered.com/news/app/3393110/view/675136702174462588",
-  "https://store.steampowered.com/news/app/3393110/view/675136971036688783"
+  "https://store.steampowered.com/news/app/3393110/view/675136971036688783",
+  "https://store.steampowered.com/news/app/3393110/view/675136971036688781"
  ],
  "lol-news": [
   "https://www.leagueoflegends.com/de-de/news/dev/tldw-s1-2026-theme-gameplay-more-dev-update",
@@ -310,7 +311,8 @@
   "https://www.instagram.com/p/DfSbBJpFMow/",
   "https://www.instagram.com/p/DfSadA9CAAE/",
   "https://www.youtube.com/watch?v=xl307wZk41E",
-  "https://www.youtube.com/watch?v=LDPRHUp6ScM"
+  "https://www.youtube.com/watch?v=LDPRHUp6ScM",
+  "https://lolesports.com/de-de/news/worlds-2026-opening-ceremony-presented-by-mastercard"
  ],
  "aion2-korea": [
   "6abc11b8d97eae18cc40e18d",
@@ -343,9 +345,9 @@
    "https://store.steampowered.com/news/app/3393110/view/675136971036688783"
   ],
   "current": {
-   "id": "https://store.steampowered.com/news/app/3393110/view/675136971036688783",
-   "title": "[Mitteilung] Wartungsarbeiten | 10. November",
-   "end": "2026-11-09T22:00:00+00:00"
+   "id": "https://store.steampowered.com/news/app/3393110/view/675136971036688781",
+   "title": "[Mitteilung] Wartungsarbeiten | 10. November (PDT) / 11. November (CET)",
+   "end": "2026-11-11T10:30:00+00:00"
   }
  },
  "lol-status": {
