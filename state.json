@@ -318,7 +318,8 @@
   "https://www.youtube.com/watch?v=xl307wZk41E",
   "https://www.youtube.com/watch?v=LDPRHUp6ScM",
   "https://lolesports.com/de-de/news/worlds-2026-opening-ceremony-presented-by-mastercard",
-  "https://www.youtube.com/watch?v=R4nQcZdGs8g"
+  "https://www.youtube.com/watch?v=R4nQcZdGs8g",
+  "https://www.youtube.com/watch?v=44oxy-v7CuY"
  ],
  "aion2-korea": [
   "6abc11b8d97eae18cc40e18d",
@@ -360,7 +361,13 @@
   }
  },
  "lol-status": {
-  "active": {}
+  "active": {
+   "13822": {
+    "kind": "incident",
+    "title": "Probleme bei der Anmeldung",
+    "update": "Uns ist bekannt, dass Einloggversuche momentan fehlschlagen, und wir arbeiten bereits an einer Lösung des Problems."
+   }
+  }
  },
  "_repost": []
 }
