@@ -361,13 +361,7 @@
   }
  },
  "lol-status": {
-  "active": {
-   "13822": {
-    "kind": "incident",
-    "title": "Probleme bei der Anmeldung",
-    "update": "Uns ist bekannt, dass Einloggversuche momentan fehlschlagen, und wir arbeiten bereits an einer Lösung des Problems."
-   }
-  }
+  "active": {}
  },
  "_repost": []
 }
