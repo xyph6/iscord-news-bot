@@ -84,7 +84,8 @@
   "https://store.steampowered.com/news/app/3393110/view/675137971401261911",
   "https://store.steampowered.com/news/app/3393110/view/675137971401261621",
   "https://store.steampowered.com/news/app/3393110/view/675137971401261623",
-  "https://store.steampowered.com/news/app/3393110/view/675137971401262388"
+  "https://store.steampowered.com/news/app/3393110/view/675137971401262388",
+  "https://store.steampowered.com/news/app/3393110/view/675137971401262392"
  ],
  "lol-news": [
   "https://www.leagueoflegends.com/de-de/news/dev/tldw-s1-2026-theme-gameplay-more-dev-update",
@@ -343,7 +344,8 @@
   "https://www.leagueoflegends.com/de-de/news/game-updates/league-of-legends-patch-26-23-notes",
   "https://www.youtube.com/watch?v=ti1EwTZyfN8",
   "https://www.youtube.com/watch?v=MiUAC8ukAFQ",
-  "https://www.youtube.com/watch?v=wV-yv7iARzU"
+  "https://www.youtube.com/watch?v=wV-yv7iARzU",
+  "https://lolesports.com/de-de/news/build-with-official-league-of-legends-esports-data"
  ],
  "aion2-korea": [
   "6abc11b8d97eae18cc40e18d",
@@ -379,12 +381,13 @@
    "https://store.steampowered.com/news/app/3393110/view/675136064593070925",
    "https://store.steampowered.com/news/app/3393110/view/675136971036688783",
    "https://store.steampowered.com/news/app/3393110/view/675136971036688781",
-   "https://store.steampowered.com/news/app/3393110/view/670633736808695081"
+   "https://store.steampowered.com/news/app/3393110/view/670633736808695081",
+   "https://store.steampowered.com/news/app/3393110/view/675137971401262392"
   ],
   "current": {
-   "id": "https://store.steampowered.com/news/app/3393110/view/670633736808695081",
-   "title": "[Mitteilung] Wartungsarbeiten | 17. Nov (PDT) / 18. Nov (CET) (Abgeschlossen)",
-   "end": "2026-11-17T11:00:33+00:00"
+   "id": "https://store.steampowered.com/news/app/3393110/view/675137971401262392",
+   "title": "[Mitteilung] Wartungsarbeiten | 24. Nov (PDT) / 25. Nov (CET) (Abgeschlossen)",
+   "end": "2026-11-24T12:53:57+00:00"
   }
  },
  "lol-status": {
